@@ -1,6 +1,5 @@
 package ru.absurd.carrotcourt.ui
 
-import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.VibrationEffect
@@ -39,7 +38,7 @@ fun CourtApp(vm: CourtViewModel = viewModel()) {
             vm.act(action)
             if (state.sound) runCatching { tones?.startTone(if (action == Action.VERDICT) ToneGenerator.TONE_PROP_ACK else ToneGenerator.TONE_PROP_BEEP, if (action == Action.VERDICT) 220 else 65) }
             if (action == Action.VERDICT) {
-                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                val vibrator = context.getSystemService(Vibrator::class.java)
                 runCatching { vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 70, 60, 140), -1)) }
             }
         }
