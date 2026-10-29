@@ -14,7 +14,10 @@ data class CourtState(
     val found: Set<String> = emptySet(),
     val history: List<CaseRecord> = emptyList(),
     val event: Secret? = null,
-    val sound: Boolean = true
+    val sound: Boolean = true,
+    val music: Boolean = true,
+    val ambience: Boolean = true,
+    val story: StoryProgress = StoryProgress()
 )
 
 class CourtEngine(private val random: Random = Random.Default) {
