@@ -18,6 +18,10 @@ def screen():
     return ET.fromstring(adb('shell', 'cat', '/sdcard/court.xml'))
 
 def tap(text, scroll=False):
+    if scroll:
+        for _ in range(3):
+            adb('shell', 'input', 'swipe', '350', '420', '350', '1250', '180')
+        time.sleep(.3)
     for _ in range(10 if scroll else 1):
         root = screen()
         for node in root.iter('node'):
