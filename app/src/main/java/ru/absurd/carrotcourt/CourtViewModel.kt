@@ -23,5 +23,17 @@ class CourtViewModel(application: Application) : AndroidViewModel(application) {
         store.write(state)
     }
     fun toggleSound() { state = state.copy(sound = !state.sound); store.write(state) }
+    fun toggleMusic() { state = state.copy(music = !state.music); store.write(state) }
+    fun toggleAmbience() { state = state.copy(ambience = !state.ambience); store.write(state) }
+    private fun updateStory(next: StoryProgress) {
+        if (next == state.story) return
+        state = state.copy(story = next)
+        animationTick++
+        store.write(state)
+    }
+    fun revealStory(id: String) = updateStory(StoryEngine.reveal(state.story, id))
+    fun decideStory(choice: Int) = updateStory(StoryEngine.decide(state.story, choice))
+    fun nextChapter() = updateStory(StoryEngine.next(state.story))
+    fun replayStory() = updateStory(StoryEngine.replay(state.story))
     fun dismissEvent() { state = state.copy(event = null); store.write(state) }
 }

@@ -29,46 +29,66 @@ private val CourtColors = darkColorScheme(primary = Orange, background = Ink, su
 fun CourtApp(vm: CourtViewModel = viewModel()) {
     val context = LocalContext.current
     val state = vm.state
-    var screen by rememberSaveable { mutableIntStateOf(0) }
+    var screen by rememberSaveable { mutableIntStateOf(1) }
+    var audioSettings by rememberSaveable { mutableStateOf(false) }
     val tones = remember { runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 45) }.getOrNull() }
     DisposableEffect(Unit) { onDispose { tones?.release() } }
     BackHandler(screen != 0) { screen = 0 }
-    val act: (Action) -> Unit = { action ->
-        if (!state.closed || action == Action.NEW) {
-            vm.act(action)
-            if (state.sound) runCatching { tones?.startTone(if (action == Action.VERDICT) ToneGenerator.TONE_PROP_ACK else ToneGenerator.TONE_PROP_BEEP, if (action == Action.VERDICT) 220 else 65) }
-            if (action == Action.VERDICT) {
-                val vibrator = context.getSystemService(Vibrator::class.java)
-                runCatching { vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 70, 60, 140), -1)) }
-            }
+    fun feedback(verdict: Boolean = false) {
+        if (state.sound) runCatching { tones?.startTone(if (verdict) ToneGenerator.TONE_PROP_ACK else ToneGenerator.TONE_PROP_BEEP, if (verdict) 220 else 65) }
+        if (verdict) runCatching {
+            context.getSystemService(Vibrator::class.java)?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 70, 60, 140), -1))
         }
     }
+    val act: (Action) -> Unit = { action ->
+        if (!state.closed || action == Action.NEW) { vm.act(action); feedback(action == Action.VERDICT) }
+    }
     MaterialTheme(colorScheme = CourtColors, typography = Typography(bodyLarge = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 15.sp, lineHeight = 22.sp))) {
+        BackgroundAudio(state.music, state.ambience)
+        if (audioSettings) AlertDialog(
+            onDismissRequest = { audioSettings = false }, shape = RectangleShape,
+            containerColor = Panel, title = { Text("Звуки огорода", fontFamily = FontFamily.Monospace) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AudioSetting("Ретро-музыка", state.music, vm::toggleMusic)
+                    AudioSetting("Атмосфера зала", state.ambience, vm::toggleAmbience)
+                    AudioSetting("Эффекты кнопок", state.sound, vm::toggleSound)
+                    Text("Громкость — кнопками телефона. При сворачивании фон останавливается.", color = Muted, fontSize = 12.sp)
+                }
+            }, confirmButton = { TextButton(onClick = { audioSettings = false }) { Text("Готово", color = Orange) } }
+        )
         Surface(color = Ink, modifier = Modifier.fillMaxSize()) {
             Column(Modifier.safeDrawingPadding().fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(8.dp).background(Green))
                     Text(" ОВОЩНОЙ ТРИБУНАЛ", color = Muted, fontFamily = FontFamily.Monospace, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = vm::toggleSound, shape = RectangleShape, contentPadding = PaddingValues(8.dp)) {
-                        Text(if (state.sound) "ЗВУК: ВКЛ" else "ЗВУК: ВЫКЛ", color = if (state.sound) Green else Muted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    TextButton(onClick = { audioSettings = true }, shape = RectangleShape, contentPadding = PaddingValues(8.dp)) {
+                        Text("АУДИО", color = if (state.sound || state.music || state.ambience) Green else Muted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     val pageScroll = key(screen) { rememberScrollState() }
+                    LaunchedEffect(screen, state.story.chapter, state.story.completed) {
+                        if (screen == 1) pageScroll.scrollTo(0)
+                    }
                     Column(Modifier.widthIn(max = 560.dp).align(Alignment.TopCenter).fillMaxSize().verticalScroll(pageScroll).padding(horizontal = 20.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         when (screen) {
                             0 -> CourtScreen(state, vm.animationTick, act, vm::dismissEvent)
-                            1 -> ArchiveScreen(state)
+                            1 -> StoryScreen(state.story, vm.animationTick,
+                                reveal = { vm.revealStory(it); feedback() },
+                                decide = { if (state.story.ready && !state.story.decided && !state.story.completed) { vm.decideStory(it); feedback(true) } },
+                                next = vm::nextChapter, replay = vm::replayStory)
+                            2 -> ArchiveScreen(state)
                             else -> GuideScreen(state)
                         }
                     }
-                    if (screen == 0 && state.closed) VerdictConfetti(vm.animationTick, Modifier.matchParentSize())
+                    if ((screen == 0 && state.closed) || (screen == 1 && state.story.decided)) VerdictConfetti(vm.animationTick, Modifier.matchParentSize())
                 }
                 Row(Modifier.fillMaxWidth().background(Panel).border(1.dp, Color(0xFF40364F)).padding(4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    listOf("СУД", "АРХИВ", "АБСУРД").forEachIndexed { i, label ->
+                    listOf("СУД", "СЮЖЕТ", "АРХИВ", "АБСУРД").forEachIndexed { i, label ->
                         TextButton(onClick = { screen = i }, modifier = Modifier.weight(1f).heightIn(min = 52.dp), shape = RectangleShape,
                             colors = ButtonDefaults.textButtonColors(containerColor = if (screen == i) Color(0xFF3A2C37) else Color.Transparent)) {
-                            Text((if (screen == i) "▪ " else "") + label, fontFamily = PixelFont, fontSize = 9.sp, color = if (screen == i) Orange else Muted)
+                            Text((if (screen == i) "▪ " else "") + label, fontFamily = PixelFont, fontSize = 8.sp, color = if (screen == i) Orange else Muted)
                         }
                     }
                 }
@@ -118,7 +138,7 @@ private fun CourtScreen(state: CourtState, tick: Int, act: (Action) -> Unit, dis
 }
 
 @Composable
-private fun PixelButton(text: String, icon: String, accent: Color, modifier: Modifier = Modifier, enabled: Boolean = true, filled: Boolean = false, onClick: () -> Unit) {
+internal fun PixelButton(text: String, icon: String, accent: Color, modifier: Modifier = Modifier, enabled: Boolean = true, filled: Boolean = false, onClick: () -> Unit) {
     Button(onClick = onClick, enabled = enabled, shape = RectangleShape,
         border = BorderStroke(2.dp, if (enabled) accent else Color(0xFF423A4D)),
         colors = ButtonDefaults.buttonColors(containerColor = if (filled) accent else Panel, contentColor = if (filled) Ink else accent,
@@ -131,19 +151,19 @@ private fun PixelButton(text: String, icon: String, accent: Color, modifier: Mod
 }
 
 @Composable
-private fun PixelPanel(accent: Color = Lilac, content: @Composable ColumnScope.() -> Unit) {
+internal fun PixelPanel(accent: Color = Lilac, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth().background(Panel).border(2.dp, accent.copy(alpha = .65f)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
 }
 
 @Composable
-private fun PageTitle(title: String, subtitle: String) {
+internal fun PageTitle(title: String, subtitle: String) {
     Text(title, fontFamily = PixelFont, fontSize = 20.sp, lineHeight = 30.sp, color = Cream)
     Text(subtitle, color = Muted, fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 18.sp)
 }
 
 @Composable
 private fun ArchiveScreen(state: CourtState) {
-    PageTitle("АРХИВ ДЕЛ", "Всё, что вы наговорили, уже стало гарниром.")
+    PageTitle("АРХИВ ДЕЛ", "Свободный суд: всё, что вы наговорили, уже стало гарниром.")
     PixelPanel(Orange) {
         Stat("Рассмотрено дел", state.completed, Orange)
         HorizontalDivider(color = Muted.copy(alpha = .2f))
@@ -175,7 +195,13 @@ private fun Stat(label: String, value: Int, color: Color) {
 
 @Composable
 private fun GuideScreen(state: CourtState) {
+    var awards by rememberSaveable { mutableStateOf(false) }
     PageTitle("СПРАВОЧНИК\nАБСУРДА", "Редкие находки из юридического огорода.")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = { awards = false }) { Text("Секреты", color = if (!awards) Orange else Muted) }
+        TextButton(onClick = { awards = true }) { Text("Достижения", color = if (awards) Orange else Muted) }
+    }
+    if (awards) { Achievements(state); return }
     PixelPanel(Green) {
         Stat("Найдено секретов", state.found.size, Green)
         LinearProgressIndicator(progress = { state.found.size / AbsurdCatalog.secrets.size.toFloat() }, modifier = Modifier.fillMaxWidth(), color = Green, trackColor = Ink)
@@ -188,5 +214,13 @@ private fun GuideScreen(state: CourtState) {
             Text(if (found) "★ ${secret.title}" else "? НЕИЗВЕСТНЫЙ АБСУРД #${i + 1}", color = if (found) Orange else Muted, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
             Text(if (found) secret.text else if (secret.id.startsWith("verdict_")) "Скрывается за ударом судейского молотка." else "Может случиться во время любого выступления.", style = MaterialTheme.typography.bodyLarge, color = if (found) Cream else Muted)
         }
+    }
+}
+
+@Composable
+private fun AudioSetting(label: String, enabled: Boolean, toggle: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontSize = 14.sp)
+        Switch(checked = enabled, onCheckedChange = { toggle() }, colors = SwitchDefaults.colors(checkedTrackColor = Orange, checkedThumbColor = Ink))
     }
 }
