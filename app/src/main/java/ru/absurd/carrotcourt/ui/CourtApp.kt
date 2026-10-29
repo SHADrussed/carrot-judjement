@@ -54,7 +54,8 @@ fun CourtApp(vm: CourtViewModel = viewModel()) {
                     }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
-                    Column(Modifier.widthIn(max = 560.dp).align(Alignment.TopCenter).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    val pageScroll = key(screen) { rememberScrollState() }
+                    Column(Modifier.widthIn(max = 560.dp).align(Alignment.TopCenter).fillMaxSize().verticalScroll(pageScroll).padding(horizontal = 20.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         when (screen) {
                             0 -> CourtScreen(state, vm.animationTick, act, vm::dismissEvent)
                             1 -> ArchiveScreen(state)
