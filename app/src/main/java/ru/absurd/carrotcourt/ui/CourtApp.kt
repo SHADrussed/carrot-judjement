@@ -66,23 +66,25 @@ fun CourtApp(vm: CourtViewModel = viewModel()) {
                         Text("АУДИО", color = if (state.sound || state.music || state.ambience) Green else Muted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
-                Box(Modifier.weight(1f).fillMaxWidth()) {
-                    val pageScroll = key(screen) { rememberScrollState() }
-                    LaunchedEffect(screen, state.story.chapter, state.story.completed) {
-                        if (screen == 1) pageScroll.scrollTo(0)
-                    }
-                    Column(Modifier.widthIn(max = 560.dp).align(Alignment.TopCenter).fillMaxSize().verticalScroll(pageScroll).padding(horizontal = 20.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        when (screen) {
-                            0 -> CourtScreen(state, vm.animationTick, act, vm::dismissEvent)
-                            1 -> StoryScreen(state.story, vm.animationTick,
-                                reveal = { vm.revealStory(it); feedback() },
-                                decide = { if (state.story.ready && !state.story.decided && !state.story.completed) { vm.decideStory(it); feedback(true) } },
-                                next = vm::nextChapter, replay = vm::replayStory)
-                            2 -> ArchiveScreen(state)
-                            else -> GuideScreen(state)
+                key(screen) {
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        val pageScroll = rememberScrollState()
+                        LaunchedEffect(screen, state.story.chapter, state.story.completed) {
+                            if (screen == 1) pageScroll.scrollTo(0)
                         }
+                        Column(Modifier.widthIn(max = 560.dp).align(Alignment.TopCenter).fillMaxSize().verticalScroll(pageScroll).padding(horizontal = 20.dp).padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            when (screen) {
+                                0 -> CourtScreen(state, vm.animationTick, act, vm::dismissEvent)
+                                1 -> StoryScreen(state.story, vm.animationTick,
+                                    reveal = { vm.revealStory(it); feedback() },
+                                    decide = { if (state.story.ready && !state.story.decided && !state.story.completed) { vm.decideStory(it); feedback(true) } },
+                                    next = vm::nextChapter, replay = vm::replayStory)
+                                2 -> ArchiveScreen(state)
+                                else -> GuideScreen(state)
+                            }
+                        }
+                        if ((screen == 0 && state.closed) || (screen == 1 && state.story.decided)) VerdictConfetti(vm.animationTick, Modifier.matchParentSize())
                     }
-                    if ((screen == 0 && state.closed) || (screen == 1 && state.story.decided)) VerdictConfetti(vm.animationTick, Modifier.matchParentSize())
                 }
                 Row(Modifier.fillMaxWidth().background(Panel).border(1.dp, Color(0xFF40364F)).padding(4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                     listOf("СУД", "СЮЖЕТ", "АРХИВ", "АБСУРД").forEachIndexed { i, label ->

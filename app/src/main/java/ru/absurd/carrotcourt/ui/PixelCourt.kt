@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -78,7 +79,7 @@ fun PixelCourt(tick: Int, closed: Boolean, guilty: Boolean, speaker: String, mod
     var blinking by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { while (true) { delay(3100); blinking = true; delay(140); blinking = false } }
     LaunchedEffect(tick) { if (tick > 0) { reaction.snapTo(1f); reaction.animateTo(0f, tween(900)) } }
-    Canvas(modifier.fillMaxWidth().aspectRatio(1.65f).semantics {
+    Canvas(modifier.fillMaxWidth().aspectRatio(1.65f).clipToBounds().semantics {
         contentDescription = "Пиксельный зал суда. Сверху судья Картофель, слева прокурор Брокколи, справа адвокат Майонез, в центре Морковка."
     }) {
         scale(size.width / 360f, size.height / 218f, pivot = Offset.Zero) {
